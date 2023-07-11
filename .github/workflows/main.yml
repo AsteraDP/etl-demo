@@ -1,0 +1,24 @@
+
+name: Import DAG to airflow
+
+on: push
+
+jobs:
+    sftp_job:
+        name: push DAG by sftp to airflow
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v3
+            - name: Deploy file
+              uses: wlixcc/SFTP-Deploy-Action@v1.2.4
+              with:
+                username: ${{ vars.DEMO_AIRFLOW_USER }}
+                server: ${{ vars.DEMO_AIRFLOW_DOMAIN }}
+                port: ${{ vars.DEMO_AIRFLOW_PORT }}
+                local_path: './dags/*'
+                remote_path: '${{ vars.DEMO_AIRFLOW_DAGS_PATH }}'
+                sftp_only: true
+                ssh_private_key: ${{ secrets.DEMO_AIRFLOW_KEY }}
+

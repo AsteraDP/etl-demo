@@ -1,0 +1,47 @@
+FROM python:3.9-slim-bullseye
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  git \
+  wget \
+  dumb-init \
+  postgresql-client \
+  && rm -rf /var/lib/apt/lists/*
+
+COPY entrypoint_transform.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+WORKDIR /app
+
+RUN groupadd -r etl_grp && useradd -d /home/etl_user -m -r -g etl_grp etl_user
+RUN chown -R etl_user:etl_grp /app
+USER etl_user
+ENV PATH="${PATH}:/home/etl_user/.local/bin"
+
+RUN mkdir -p /home/etl_user/.postgresql && \
+  wget "https://storage.yandexcloud.net/cloud-certs/CA.pem" -O /home/etl_user/.postgresql/root.crt --inet4-only && \
+  chmod 0600 /home/etl_user/.postgresql/root.crt
+
+ARG DBT_CORE_VERSION=1.1.0
+ARG DBT_GREENPLUM_VERSION=1.1.0
+RUN pip3 install --user dbt-greenplum==${DBT_GREENPLUM_VERSION} dbt-core==${DBT_CORE_VERSION}
+
+ARG DBTVAULT_REPO=https://github.com/enchantner/dbtvault.git
+ARG DBTVAULT_REF=feat/greenplum
+ARG DBTVAULT_PATH=dbtvault-dev
+RUN git clone ${DBTVAULT_REPO} /app/dbtvault && \
+  cd /app/dbtvault && \
+  git checkout ${DBTVAULT_REF}
+
+COPY --chown=etl_user:etl_grp transform/dbt_project.yml /app/transform/dbt_project.yml
+COPY --chown=etl_user:etl_grp transform/packages.yml /app/transform/packages.yml
+WORKDIR /app/transform
+RUN sed -i "s,DBTVAULT_REPO,${DBTVAULT_REPO},g" /app/transform/packages.yml && \
+  dbt deps && rm -rf /app/transform/dbt_packages/dbtvault && \
+  ln -s "/app/dbtvault/${DBTVAULT_PATH}" /app/transform/dbt_packages/dbtvault
+
+COPY --chown=etl_user:etl_grp transform/ /app/transform
+
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+CMD ["/entrypoint.sh"]
+
+

@@ -1,0 +1,11 @@
+/.env
+.idea
+*.pyc
+.DS_Store
+__pycache__
+
+/logs/
+/transform/target/
+/transform/dbt_packages/
+/transform/logs/
+

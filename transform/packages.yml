@@ -1,0 +1,4 @@
+packages:
+  - git: "DBTVAULT_REPO"
+    revision: master
+    warn-unpinned: false
